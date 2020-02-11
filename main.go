@@ -1,11 +1,9 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"os"
-	"os/exec"
 
 	"github.com/containernetworking/cni/pkg/invoke"
 	"github.com/containernetworking/cni/pkg/skel"
@@ -13,11 +11,15 @@ import (
 	"github.com/containernetworking/cni/pkg/version"
 	"github.com/vishvananda/netlink"
 	"k8s.io/klog"
+
+	"github.com/generals-space/cni-terway/util"
 )
 
 const (
 	bridgeName = "mybr0"
 	eth0Name   = "ens160"
+	dhcpPath   = "/opt/cni/bin/dhcp"
+	dhcpSock   = "/run/cni/dhcp.sock"
 )
 
 var versionAll = version.PluginSupports("0.3.1")
@@ -28,34 +30,46 @@ type NetConf struct {
 	Delegate map[string]interface{} `json:"delegate"`
 }
 
+// startDHCP 运行dhcp插件, 作为守护进程.
 func startDHCP(ctx context.Context) (err error) {
-	/*
-		if util.Exists("/run/cni/dhcp.sock") {
-			klog.Info("dhcp.sock already exist")
-			return
-		}
-		klog.Info("dhcp.sock doesn't exist, continue.")
-	*/
-	err = os.Remove("/run/cni/dhcp.sock")
-	if err != nil {
-		if err.Error() != "remove /run/cni/dhcp.sock: no such file or directory" {
-			klog.Errorf("try to rm dhcp.sock failed: %s", err)
-			return
-		}
-		// 目标不存在, 则继续.
+	if util.Exists(dhcpSock) {
+		klog.Info("dhcp.sock already exist")
+		return
 	}
+	klog.Info("dhcp.sock doesn't exist, continue.")
 
-	c := exec.CommandContext(ctx, "/opt/cni/bin/dhcp", "daemon")
-	stdout := &bytes.Buffer{}
-	// c.Env =
-	// c.Stdin =
-	c.Stdout = stdout
-	c.Stderr = stdout
-	if err := c.Run(); err != nil {
-		klog.Errorf("dhcp start failed: %s, stdout: %s, stderr: %s", err, c.Stdout, c.Stderr)
-		return err
+	/*
+		// 放弃粗暴地移除sock文件
+		err = os.Remove(dhcpSock)
+		if err != nil {
+			if err.Error() != "remove /run/cni/dhcp.sock: no such file or directory" {
+				klog.Errorf("try to rm dhcp.sock failed: %s", err)
+				return
+			}
+			// 目标不存在, 则继续.
+		}
+	*/
+	if os.Getppid() != 1 {
+		args := []string{dhcpPath, "daemon"}
+		procAttr := &os.ProcAttr{
+			Files: []*os.File{
+				os.Stdin,
+				os.Stdout,
+				os.Stderr,
+			},
+		}
+		// os.StartProcess()也是非阻塞函数, 运行时立刻返回(proc进程对象会创建好),
+		// 然后如果目标子进程运行出错, 就会返回到err处理部分.
+		proc, err := os.StartProcess(dhcpPath, args, procAttr)
+		if err != nil {
+			klog.Errorf("dhcp start failed: %s", err)
+			// 即使执行失败, 打印完后也不退出, 除非显式调用return
+			return err
+		}
+		// 如果这里执行完, 发现目标进程启动失败, 会回到上面err处理部分.
+		klog.Infof("dhcp daemon started, proc: %+v", proc)
 	}
-	return nil
+	return
 }
 
 // 手动创建 mybr0 接口, 然后将eth0接入, 因为如果不完成接入,
@@ -194,7 +208,11 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 	/////////////////////////////////
 	ctx := context.TODO()
-	go startDHCP(ctx)
+	err = startDHCP(ctx)
+	if err != nil {
+		klog.Errorf("faliled to run dhcp plugin: %s", err)
+		return
+	}
 	klog.V(3).Info("run dhcp plugin success")
 
 	result, err := invoke.DelegateAdd(ctx, netConf.Delegate["type"].(string), delegateBytes, nil)
