@@ -1,0 +1,101 @@
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: kube-cni-terway-cfg
+  namespace: kube-system
+  labels:
+    tier: node
+    app: flannel
+data:
+  cni-conf.json: |
+    {
+      "cniVersion": "0.3.1",
+      "name": "mycninet",
+      "type": "bridge",
+      "bridge": "mybr0",
+      "isGateway": false,
+      "ipam": {
+        "type": "dhcp"
+      }
+    }
+
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kube-cni-terway-ds
+  namespace: kube-system
+  labels:
+    tier: node
+    app: cni-terway
+spec:
+  selector:
+    matchLabels:
+      app: cni-terway
+  template:
+    metadata:
+      labels:
+        tier: node
+        app: cni-terway
+    spec:
+      hostNetwork: true
+      tolerations:
+      - operator: Exists
+        effect: NoSchedule
+      initContainers:
+      - name: cp-cni-config
+        image: registry.cn-hangzhou.aliyuncs.com/generals-kuber/cni-terway:1.4
+        command:
+        - cp
+        args:
+        - -f
+        - /etc/kube-cni-terway/cni-conf.json
+        - /etc/cni/net.d/10-cni-terway.conf
+        ## 挂载源目录和目标目录, 拷贝配置文件.
+        volumeMounts:
+        - name: cni-terway-cfg
+          mountPath: /etc/kube-cni-terway/
+        - name: cni-config-dir
+          mountPath: /etc/cni/net.d
+      containers:
+      - name: kube-cni-terway
+        image: registry.cn-hangzhou.aliyuncs.com/generals-kuber/cni-terway:1.4
+        command:
+        - /cni-terway
+        args:
+        - --bridge
+        - mybr0
+        - --iface
+        - ens160
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "50Mi"
+          limits:
+            cpu: "100m"
+            memory: "50Mi"
+        securityContext:
+          privileged: false
+          capabilities:
+             add: ["NET_ADMIN"]
+        volumeMounts:
+        - name: dhcp-sock
+          mountPath: /run/cni/
+        - name: cni-bin
+          mountPath: /opt/cni/bin
+      volumes:
+        - name: dhcp-sock
+          ## 挂载dhcp目录, 存放dhcp.sock文件
+          hostPath:
+            path: /run/cni/
+        - name: cni-config-dir
+          hostPath:
+            path: /etc/cni/net.d
+        - name: cni-bin
+          hostPath:
+            path: /opt/cni/bin
+        - name: cni-terway-cfg
+          ## 这个volume由init container挂载, 用于拷贝其中的配置文件
+          configMap:
+            name: kube-cni-terway-cfg

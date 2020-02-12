@@ -9,3 +9,6 @@
 ```
 go build -o cni-terway main.go
 ```
+
+kuber部署
+命令行参数

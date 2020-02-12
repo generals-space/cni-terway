@@ -1,4 +1,4 @@
-## docker build --no-cache=true -f dockerfile -t generals/cni-terway:1.0 .
+## docker build --no-cache=true -f dockerfile -t registry.cn-hangzhou.aliyuncs.com/generals-kuber/cni-terway:1.1 .
 ########################################################
 FROM golang:1.12 as builder
 ## docker镜像通用设置
@@ -10,7 +10,8 @@ ENV LANG C.UTF-8
 WORKDIR /cni-terway
 COPY . .
 ENV GO111MODULE on
-RUN go build -o cni-terway ./
+ENV GOPROXY https://goproxy.cn
+RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o cni-terway ./
 ########################################################
 FROM generals/alpine
 ## docker镜像通用设置
