@@ -10,15 +10,16 @@ import (
 	"github.com/vishvananda/netlink"
 	"k8s.io/klog"
 
-	"github.com/generals-space/cni-terway/util"
+	"github.com/generals-space/cni-terway/pkg"
 )
 
 var (
-	cmdOpts CmdOpts
-	cmdFlags = flag.NewFlagSet("cni-terway", flag.ExitOnError)
-	dhcpPath    = "/opt/cni/bin/dhcp"
-	dhcpSock    = "/run/cni/dhcp.sock"
-	dhcpLogPath = "/run/cni/dhcp.log"
+	cmdOpts      CmdOpts
+	cmdFlags     = flag.NewFlagSet("cni-terway", flag.ExitOnError)
+	dhcpBinPath  = "/opt/cni/bin/dhcp"
+	dhcpSockPath = "/run/cni/dhcp.sock"
+	dhcpLogPath  = "/run/cni/dhcp.log"
+	dhcpProc     *os.Process
 )
 
 // CmdOpts 命令行参数对象
@@ -33,64 +34,7 @@ func init() {
 	cmdFlags.Parse(os.Args[1:])
 }
 
-// startDHCP 运行dhcp插件, 作为守护进程.
-func startDHCP(ctx context.Context) (err error) {
-	if util.Exists(dhcpSock) {
-		klog.Info("dhcp.sock already exist")
-		return
-	}
-	klog.Info("dhcp.sock doesn't exist, continue.")
-
-	/*
-		// 放弃粗暴地移除sock文件
-		err = os.Remove(dhcpSock)
-		if err != nil {
-			if err.Error() != "remove /run/cni/dhcp.sock: no such file or directory" {
-				klog.Errorf("try to rm dhcp.sock failed: %s", err)
-				return
-			}
-			// 目标不存在, 则继续.
-		}
-	*/
-	if os.Getppid() != 1 {
-		args := []string{dhcpPath, "daemon"}
-
-		/*
-			procAttr := &os.ProcAttr{
-				Files: []*os.File{
-					os.Stdin,
-					os.Stdout,
-					os.Stderr,
-				},
-			}
-		*/
-		dhcpLogFile, err := os.OpenFile(dhcpLogPath, os.O_WRONLY|os.O_CREATE, 0644)
-		if err != nil {
-			klog.Errorf("create dhcp log file failed: %s", err)
-			return err
-		}
-		procAttr := &os.ProcAttr{
-			Files: []*os.File{
-				dhcpLogFile,
-				dhcpLogFile,
-				dhcpLogFile,
-			},
-		}
-		// os.StartProcess()也是非阻塞函数, 运行时立刻返回(proc进程对象会创建好),
-		// 然后如果目标子进程运行出错, 就会返回到err处理部分.
-		proc, err := os.StartProcess(dhcpPath, args, procAttr)
-		if err != nil {
-			klog.Errorf("dhcp start failed: %s", err)
-			// 即使执行失败, 打印完后也不退出, 除非显式调用return
-			return err
-		}
-		// 如果这里执行完, 发现目标进程启动失败, 会回到上面err处理部分.
-		klog.Infof("dhcp daemon started, proc: %+v", proc)
-	}
-	return
-}
-
-// 手动创建 cnibr0 接口, 然后将eth0接入, 因为如果不完成接入,
+// linkMasterBridge 手动创建 cnibr0 接口, 然后将eth0接入, 因为如果不完成接入,
 // invoke调用bridge+dhcp插件时请求会失败, 出现如下报错
 // error calling DHCP.Allocate: no more tries
 func linkMasterBridge() (err error) {
@@ -219,15 +163,37 @@ func main() {
 
 	/////////////////////////////////
 	ctx := context.TODO()
-	err = startDHCP(ctx)
+	dhcpProc, err = pkg.StartDHCP(ctx, dhcpBinPath, dhcpSockPath, dhcpLogPath)
 	if err != nil {
 		klog.Errorf("faliled to run dhcp plugin: %s", err)
 		return
 	}
 	klog.Info("run dhcp plugin success")
 
-	sigCh := make(chan os.Signal)
+	// 使用两个channel, sigCh接收信号, 之后的清理操作有可能失败, 失败后不能直接退出.
+	// 退出的时机由doneCh决定.
+	sigCh := make(chan os.Signal, 1)
+	doneCh := make(chan bool, 1)
+	// 一般delete pod时, 收到的是SIGTERM信号.
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-	klog.Info(<-sigCh)
+
+	go func() {
+		for sig := range sigCh {
+			klog.Infof("receive signal %d", sig)
+			if sig != syscall.SIGTERM {
+				continue
+			}
+
+			err := pkg.StopDHCP(dhcpProc, dhcpSockPath)
+			if err != nil {
+				klog.Errorf("receive SIGTERM, but stop dhcp process failed: %s", err)
+				continue
+			}
+			doneCh <- true
+		}
+	}()
+	<-doneCh
+
+	klog.Info("exiting")
 	return
 }
