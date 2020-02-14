@@ -40,12 +40,13 @@ spec:
         app: cni-terway
     spec:
       hostNetwork: true
+      hostPID: true
       tolerations:
       - operator: Exists
         effect: NoSchedule
       initContainers:
       - name: cp-cni-config
-        image: registry.cn-hangzhou.aliyuncs.com/generals-kuber/cni-terway:1.4
+        image: registry.cn-hangzhou.aliyuncs.com/generals-kuber/cni-terway:1.5
         command:
         - cp
         args:
@@ -60,7 +61,7 @@ spec:
           mountPath: /etc/cni/net.d
       containers:
       - name: kube-cni-terway
-        image: registry.cn-hangzhou.aliyuncs.com/generals-kuber/cni-terway:1.4
+        image: registry.cn-hangzhou.aliyuncs.com/generals-kuber/cni-terway:1.5
         command:
         - /cni-terway
         args:
@@ -78,7 +79,7 @@ spec:
         securityContext:
           privileged: false
           capabilities:
-             add: ["NET_ADMIN"]
+            add: ["NET_ADMIN", "SYS_PTRACE", "SYS_ADMIN"]
         volumeMounts:
         - name: dhcp-sock
           mountPath: /run/cni/

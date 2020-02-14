@@ -13,11 +13,12 @@ import (
 	"github.com/generals-space/cni-terway/util"
 )
 
-const (
-	bridgeName = "cnibr0"
-	eth0Name   = "ens160"
-	dhcpPath   = "/opt/cni/bin/dhcp"
-	dhcpSock   = "/run/cni/dhcp.sock"
+var (
+	cmdOpts CmdOpts
+	cmdFlags = flag.NewFlagSet("cni-terway", flag.ExitOnError)
+	dhcpPath    = "/opt/cni/bin/dhcp"
+	dhcpSock    = "/run/cni/dhcp.sock"
+	dhcpLogPath = "/run/cni/dhcp.log"
 )
 
 // CmdOpts 命令行参数对象
@@ -25,9 +26,6 @@ type CmdOpts struct {
 	bridgeName string
 	eth0Name   string
 }
-
-var cmdFlags = flag.NewFlagSet("cni-terway", flag.ExitOnError)
-var cmdOpts = CmdOpts{}
 
 func init() {
 	cmdFlags.StringVar(&cmdOpts.eth0Name, "iface", "eth0", "the network interface using to communicate with kubernetes cluster")
@@ -56,11 +54,26 @@ func startDHCP(ctx context.Context) (err error) {
 	*/
 	if os.Getppid() != 1 {
 		args := []string{dhcpPath, "daemon"}
+
+		/*
+			procAttr := &os.ProcAttr{
+				Files: []*os.File{
+					os.Stdin,
+					os.Stdout,
+					os.Stderr,
+				},
+			}
+		*/
+		dhcpLogFile, err := os.OpenFile(dhcpLogPath, os.O_WRONLY|os.O_CREATE, 0644)
+		if err != nil {
+			klog.Errorf("create dhcp log file failed: %s", err)
+			return err
+		}
 		procAttr := &os.ProcAttr{
 			Files: []*os.File{
-				os.Stdin,
-				os.Stdout,
-				os.Stderr,
+				dhcpLogFile,
+				dhcpLogFile,
+				dhcpLogFile,
 			},
 		}
 		// os.StartProcess()也是非阻塞函数, 运行时立刻返回(proc进程对象会创建好),
