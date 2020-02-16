@@ -6,20 +6,25 @@ metadata:
   namespace: kube-system
   labels:
     tier: node
-    app: flannel
+    app: cni-terway
 data:
   cni-conf.json: |
     {
-      "cniVersion": "0.3.1",
       "name": "mycninet",
-      "type": "bridge",
-      "bridge": "mybr0",
-      "isGateway": false,
-      "ipam": {
-        "type": "dhcp"
+      "cniVersion": "0.3.1",
+      "type": "cni-terway",
+      "delegate": {
+          "cniVersion": "0.3.1",
+          "name": "mycninet",
+          "type": "bridge",
+          "bridge": "mybr0",
+          "isGateway": false,
+          "ipam": {
+            "type": "dhcp"
+          }
       }
     }
-
+  
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -46,7 +51,7 @@ spec:
         effect: NoSchedule
       initContainers:
       - name: cp-cni-config
-        image: registry.cn-hangzhou.aliyuncs.com/generals-kuber/cni-terway:1.4
+        image: registry.cn-hangzhou.aliyuncs.com/generals-kuber/cni-terway:1.0.2
         command:
         - cp
         args:
@@ -59,16 +64,28 @@ spec:
           mountPath: /etc/kube-cni-terway/
         - name: cni-config-dir
           mountPath: /etc/cni/net.d
+      - name: cp-cni-bin
+        image: registry.cn-hangzhou.aliyuncs.com/generals-kuber/cni-terway:1.0.2
+        command:
+        - cp
+        args:
+        - -f
+        - /cni-terway
+        - /opt/cni/bin/cni-terway
+        ## 挂载源目录和目标目录, 拷贝cni-terway可执行文件.
+        volumeMounts:
+        - name: cni-bin
+          mountPath: /opt/cni/bin
       containers:
       - name: kube-cni-terway
-        image: registry.cn-hangzhou.aliyuncs.com/generals-kuber/cni-terway:1.4
+        image: registry.cn-hangzhou.aliyuncs.com/generals-kuber/cni-terway:1.0.2
         command:
-        - /cni-terway
+        - /terway
         args:
         - --bridge
         - mybr0
         - --iface
-        - ens160
+        - ens34
         resources:
           requests:
             cpu: "100m"

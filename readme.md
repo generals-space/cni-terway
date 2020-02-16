@@ -57,11 +57,16 @@
 
 在此网络模式中, 物理网卡`eth0`退化为一条网线, 由`mybr0`接管其原有IP, 对外连接物理网络, 各节点之间相当于通过交换机直接相连.
 
+## 注意
+
+由于此插件使用桥接网络, 所以会使`kubeadm --config`配置文件中的`networking.podSubnet`字段(或是`--pod-network-cidr`选项)失效.
+
 ## 开发流程
 
 编译
 
 ```
-$ go build -o cni-terway main.go
+$ go build -o terway main.go
+$ go build -o cni-terway ./cni/main.go
 ```
 
