@@ -154,6 +154,13 @@ func main() {
 	klog.V(3).Infof("cmd opt: %+v", cmdOpts)
 	var err error
 
+	serviceIPCIDR, err := pkg.GetServiceIPCIDR()
+	if err != nil {
+		klog.Errorf("failed to get service ip cidr: %s", err)
+		return
+	}
+	klog.Infof("============ get service ipcidr: %s", serviceIPCIDR)
+
 	// 创建bridge接口, 部署桥接网络.
 	err = linkMasterBridge()
 	if err != nil {
