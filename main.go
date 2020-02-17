@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
+	"io/ioutil"
 	"os"
 	"os/signal"
 	"syscall"
@@ -10,16 +12,18 @@ import (
 	"github.com/vishvananda/netlink"
 	"k8s.io/klog"
 
+	"github.com/generals-space/cni-terway/netconf"
 	"github.com/generals-space/cni-terway/pkg"
 )
 
 var (
-	cmdOpts      CmdOpts
-	cmdFlags     = flag.NewFlagSet("cni-terway", flag.ExitOnError)
-	dhcpBinPath  = "/opt/cni/bin/dhcp"
-	dhcpSockPath = "/run/cni/dhcp.sock"
-	dhcpLogPath  = "/run/cni/dhcp.log"
-	dhcpProc     *os.Process
+	cmdOpts        CmdOpts
+	cmdFlags       = flag.NewFlagSet("cni-terway", flag.ExitOnError)
+	dhcpBinPath    = "/opt/cni/bin/dhcp"
+	dhcpSockPath   = "/run/cni/dhcp.sock"
+	dhcpLogPath    = "/run/cni/dhcp.log"
+	dhcpProc       *os.Process
+	cniNetConfPath = "/etc/cni/net.d/10-cni-terway.conf"
 )
 
 // CmdOpts 命令行参数对象
@@ -149,10 +153,19 @@ func linkMasterBridge() (err error) {
 	return
 }
 
-func main() {
-	klog.Info("start cni-terway plugin......")
-	klog.V(3).Infof("cmd opt: %+v", cmdOpts)
-	var err error
+func fillNetConf() (err error) {
+	netConfContent, err := ioutil.ReadFile(cniNetConfPath)
+	if err != nil {
+		klog.Errorf("failed to read cni netconf file: %s", err)
+		return
+	}
+
+	netConf := &netconf.NetConf{}
+	err = json.Unmarshal(netConfContent, netConf)
+	if err != nil {
+		klog.Errorf("failed to unmarshal cni netconf content: %s", err)
+		return
+	}
 
 	serviceIPCIDR, err := pkg.GetServiceIPCIDR()
 	if err != nil {
@@ -160,6 +173,32 @@ func main() {
 		return
 	}
 	klog.Infof("get service ip cidr: %s", serviceIPCIDR)
+	netConf.ServiceIPCIDR = serviceIPCIDR
+
+	netConfContent, err = json.Marshal(netConf)
+	if err != nil {
+		klog.Errorf("failed to marshal cni netconf: %s", err)
+		return
+	}
+
+	err = ioutil.WriteFile(cniNetConfPath, netConfContent, 0644)
+	if err != nil {
+		klog.Errorf("failed to write into cni netconf: %s", err)
+		return
+	}
+
+	return
+}
+
+func main() {
+	klog.Info("start cni-terway plugin......")
+	klog.V(3).Infof("cmd opt: %+v", cmdOpts)
+	var err error
+
+	err = fillNetConf()
+	if err != nil {
+
+	}
 
 	// 创建bridge接口, 部署桥接网络.
 	err = linkMasterBridge()

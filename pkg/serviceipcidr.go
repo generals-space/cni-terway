@@ -1,7 +1,6 @@
 package pkg
 
 import (
-	"errors"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -42,13 +41,10 @@ func GetServiceIPCIDR() (serviceIPCIDR string, err error) {
 	cmds := pod.Spec.Containers[0].Command
 	for _, item := range cmds {
 		if strings.Contains(item, "service-cluster-ip-range") {
-			serviceIPCIDR := strings.Split(item, "=")[1]
+			serviceIPCIDR = strings.Split(item, "=")[1]
 			break
 		}
 	}
-	if serviceIPCIDR == "" {
-		err = errors.New("can not get service ip cidr")
-		return "", err
-	}
+
 	return
 }
