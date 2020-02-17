@@ -159,7 +159,7 @@ func main() {
 		klog.Errorf("failed to get service ip cidr: %s", err)
 		return
 	}
-	klog.Infof("============ get service ipcidr: %s", serviceIPCIDR)
+	klog.Infof("get service ip cidr: %s", serviceIPCIDR)
 
 	// 创建bridge接口, 部署桥接网络.
 	err = linkMasterBridge()
