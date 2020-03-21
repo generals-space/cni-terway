@@ -1,9 +1,8 @@
-package pkg
+package bridge
 
 import (
 	"github.com/vishvananda/netlink"
 	"k8s.io/klog"
-
 )
 
 // getBridgeDevice 获取目标网桥设备, 如不存在则创建然后返回.

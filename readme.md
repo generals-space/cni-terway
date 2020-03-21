@@ -9,6 +9,10 @@
 1. 创建bridge接口, 连接物理网卡与bridge, 然后修改路由(从物理网卡改为通过bridge设备);
 2. 启动dhcp服务守护进程(其实`dhcp`插件在工程代码中就给出了`.service`服务脚本, 本来建议使用`systemctl`将其作为服务启动的, 但是我更希望在Pod中集成这样的功能, 减少多余的操作).
 
+## 使用方法
+
+修改`kube-cni.yaml`文件中的`--iface`选项为宿主机的主网卡名称(一般是`eth0`), 然后使用`kubectl apply -f kube-cni.yaml`即可.
+
 ## 网络拓扑变化
 
 ### 1.

@@ -89,6 +89,9 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	}
 
 	///////////////////////////////////////////////////
+	// 调用bridge插件完成创建bridge, veth pair设备并完成接入的操作.
+	// 同时由于在cni配置文件中指定了ipam方式为dhcp, 
+	// 所以此处bridge插件会自动调用dhcp插件获取合适的IP.
 	result, err := invoke.DelegateAdd(context.TODO(), netConf.Delegate["type"].(string), delegateBytes, nil)
 	if err != nil {
 		klog.Errorf("faliled to run bridge plugin: %s", err)
@@ -96,6 +99,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	}
 	klog.Infof("run bridge plugin success: %s", result.Print())
 
+	// 为Pod获取IP后, 添加Pod到ServiceCIRD的路由.
 	err = AddRouteInPod(netConf.Delegate["bridge"].(string), args.Netns, netConf.ServiceIPCIDR)
 	if err != nil {
 		klog.Errorf("faliled to add route to the pod %s: %s", args.Args, err)

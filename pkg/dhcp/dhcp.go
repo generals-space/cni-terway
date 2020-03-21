@@ -1,4 +1,4 @@
-package pkg
+package dhcp
 
 import (
 	"context"

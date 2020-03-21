@@ -11,8 +11,9 @@ WORKDIR /cni-terway
 COPY . .
 ENV GO111MODULE on
 ENV GOPROXY https://goproxy.cn
-RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o terway ./
-RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o cni-terway ./cni
+RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o terway ./cmd/pod
+RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o cni-terway ./cmd/cni
+
 ########################################################
 FROM generals/alpine
 ## docker镜像通用设置

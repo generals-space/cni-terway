@@ -12,7 +12,9 @@ import (
 	"k8s.io/klog"
 
 	"github.com/generals-space/cni-terway/netconf"
-	"github.com/generals-space/cni-terway/pkg"
+	"github.com/generals-space/cni-terway/pkg/bridge"
+	"github.com/generals-space/cni-terway/pkg/dhcp"
+	"github.com/generals-space/cni-terway/pkg/serviceipcidr"
 )
 
 var (
@@ -51,7 +53,7 @@ func fillNetConf() (err error) {
 		return
 	}
 
-	serviceIPCIDR, err := pkg.GetServiceIPCIDR()
+	serviceIPCIDR, err := serviceipcidr.GetServiceIPCIDR()
 	if err != nil {
 		klog.Errorf("failed to get service ip cidr: %s", err)
 		return
@@ -81,11 +83,13 @@ func main() {
 
 	err = fillNetConf()
 	if err != nil {
-
+		return
 	}
 
-	// 创建bridge接口, 部署桥接网络.
-	err = pkg.InstallBridgeNetwork(cmdOpts.bridgeName, cmdOpts.eth0Name)
+	// 创建bridge接口, 部署桥接网络, 使bridge设备接管宿主机主网卡的功能.
+	// 虽然即使不事先创建bridge接口, 在cni部分调用bridge插件也会自动创建,
+	// 但是由于bridge插件在创建bridge设备的同时就会调用dhcp, dhcp请求会无法正确发出.
+	err = bridge.InstallBridgeNetwork(cmdOpts.bridgeName, cmdOpts.eth0Name)
 	if err != nil {
 		return
 	}
@@ -93,7 +97,7 @@ func main() {
 
 	/////////////////////////////////
 	ctx := context.TODO()
-	dhcpProc, err = pkg.StartDHCP(ctx, dhcpBinPath, dhcpSockPath, dhcpLogPath)
+	dhcpProc, err = dhcp.StartDHCP(ctx, dhcpBinPath, dhcpSockPath, dhcpLogPath)
 	if err != nil {
 		klog.Errorf("faliled to run dhcp plugin: %s", err)
 		return
@@ -115,13 +119,13 @@ func main() {
 				continue
 			}
 
-			err = pkg.StopDHCP(dhcpProc, dhcpSockPath)
+			err = dhcp.StopDHCP(dhcpProc, dhcpSockPath)
 			if err != nil {
 				klog.Errorf("receive SIGTERM, but stop dhcp process failed: %s", err)
 				continue
 			}
 			
-			err = pkg.UninstallBridgeNetwork(cmdOpts.bridgeName, cmdOpts.eth0Name)
+			err = bridge.UninstallBridgeNetwork(cmdOpts.bridgeName, cmdOpts.eth0Name)
 			if err != nil {
 				klog.Errorf("receive SIGTERM, but uninstall bridge network failed, you should check it: %s", err)
 				continue

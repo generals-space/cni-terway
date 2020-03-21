@@ -98,7 +98,7 @@ spec:
         - name: cni-config-dir
           mountPath: /etc/cni/net.d
       - name: cp-cni-bin
-        image: registry.cn-hangzhou.aliyuncs.com/generals-kuber/cni-terway:1.0.9
+        image: registry.cn-hangzhou.aliyuncs.com/generals-kuber/cni-terway:1.0.10
         command:
         - cp
         args:
@@ -111,14 +111,14 @@ spec:
           mountPath: /opt/cni/bin
       containers:
       - name: kube-cni-terway
-        image: registry.cn-hangzhou.aliyuncs.com/generals-kuber/cni-terway:1.0.9
+        image: registry.cn-hangzhou.aliyuncs.com/generals-kuber/cni-terway:1.0.10
         command:
         - /terway
         args:
         - --bridge
         - mybr0
         - --iface
-        - ens34
+        - ens33
         resources:
           requests:
             cpu: "100m"

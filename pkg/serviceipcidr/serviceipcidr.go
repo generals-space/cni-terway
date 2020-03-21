@@ -1,4 +1,4 @@
-package pkg
+package serviceipcidr
 
 import (
 	"strings"
@@ -10,7 +10,8 @@ import (
 	"k8s.io/klog"
 )
 
-// GetServiceIPCIDR ...
+// GetServiceIPCIDR 从api-server组件对象中获得service的网段范围并返回.
+// kuber并没有提供接口获得这样的信息, 这里借鉴了`kubectl cluster-info`的做法.
 func GetServiceIPCIDR() (serviceIPCIDR string, err error) {
 	cfg, err := rest.InClusterConfig()
 	if err != nil {
@@ -23,7 +24,7 @@ func GetServiceIPCIDR() (serviceIPCIDR string, err error) {
 		return "", err
 	}
 
-	// 不能简单地用Get("api-server"), 因为Pod名称还会加一些额外字符串, 比如hostname.
+	// 不能简单地用Get("api-server"), 因为Pod名称中还会加一些额外字符串, 比如hostname.
 	// 之前用的是 metav1.LabelSelector{}, 然后转换成String(), 但那只是简单的Marshal(),
 	// 实际上应该使用 labels.Set{} 结构
 	labelSet := labels.Set{
