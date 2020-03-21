@@ -61,6 +61,8 @@
 
 由于此插件使用桥接网络, 所以会使`kubeadm --config`配置文件中的`networking.podSubnet`字段(或是`--pod-network-cidr`选项)失效.
 
+在这种模式下, ServiceIP就会变得没有意义(虽然仍然有效).
+
 ## 开发流程
 
 编译

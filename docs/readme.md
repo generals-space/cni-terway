@@ -12,6 +12,9 @@
     - 场景是不希望绿色部分的虚拟机访问到紫色部分的内网
 6. [云计算底层技术-虚拟网络设备(Bridge,VLAN)](https://opengers.github.io/openstack/openstack-base-virtual-network-devices-bridge-and-vlan/)
     - 很深入
+7. [Kubernetes利用CNI-bridge插件打通网络](https://blog.csdn.net/qq_36183935/article/details/90735049)
+    - 原生CNI插件`bridge`的工作流程
+    - 提出"将物理网卡连接到网桥中, 并给bridge设备设置IP"的想法.
 
 我们要做的就类似于vmware/virtualbox中的桥接模型.
 
