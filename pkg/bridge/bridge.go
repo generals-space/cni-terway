@@ -155,7 +155,7 @@ func InstallBridgeNetwork(bridgeName, eth0Name string) (err error) {
 		// no need to log
 		return
 	}
-	// SetMaster 并不会影响 eht0 上的IP及相关路由, 需要手动进行操作.
+	// SetMaster 并不会影响 eth0 上的IP及相关路由, 需要手动进行操作.
 	err = netlink.LinkSetMaster(linkEth0, linkBridge)
 	if err != nil {
 		klog.Errorf("failed to set %s master to %s: %s", eth0Name, err)
