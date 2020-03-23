@@ -1,4 +1,4 @@
-package netconf
+package config
 
 import (
 	"github.com/containernetworking/cni/pkg/types"

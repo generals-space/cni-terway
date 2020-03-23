@@ -17,7 +17,7 @@ import (
 
 	"github.com/generals-space/crd-ipkeeper/pkg/restapi"
 
-	"github.com/generals-space/cni-terway/netconf"
+	"github.com/generals-space/cni-terway/pkg/config"
 	"github.com/generals-space/cni-terway/util/skelargs"
 	"github.com/generals-space/cni-terway/util/utilfile"
 )
@@ -82,7 +82,7 @@ func AddSvcNetRouteInPod(bridgeName, netnsPath, serviceIPCIDR string) (svcRoute 
 // 而对应的业务容器此时还未创建.
 func cmdAdd(args *skel.CmdArgs) (err error) {
 	klog.Infof("cmdAdd args: %+v", args)
-	netConf := &netconf.NetConf{}
+	netConf := &config.NetConf{}
 	err = json.Unmarshal(args.StdinData, netConf)
 	if err != nil {
 		return
