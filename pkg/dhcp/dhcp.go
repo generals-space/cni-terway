@@ -6,12 +6,12 @@ import (
 
 	"k8s.io/klog"
 
-	"github.com/generals-space/cni-terway/util"
+	"github.com/generals-space/cni-terway/util/utilfile"
 )
 
 // StartDHCP 运行dhcp插件, 作为守护进程.
 func StartDHCP(ctx context.Context, binPath, sockPath, logPath string) (proc *os.Process, err error) {
-	if util.Exists(sockPath) {
+	if utilfile.Exists(sockPath) {
 		klog.Info("dhcp.sock already exist")
 		return
 	}

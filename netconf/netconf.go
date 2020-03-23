@@ -9,4 +9,7 @@ type NetConf struct {
 	types.NetConf
 	ServiceIPCIDR string `json:"serviceIPCIDR"`
 	Delegate      map[string]interface{}
+	// ServerSocket cni server的socket路径.
+	// cni server是用来设置容器内部为固定IP的.
+	ServerSocket string `json:"server_socket"`
 }
