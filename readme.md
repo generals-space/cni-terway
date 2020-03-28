@@ -13,6 +13,10 @@
 
 修改`kube-cni.yaml`文件中的`--iface`选项为宿主机的主网卡名称(一般是`eth0`), 然后使用`kubectl apply -f kube-cni.yaml`即可.
 
+## 适用环境
+
+本插件应该算是`Underlay L2`的解决方案, 不适用于各种云环境, 而适用于自建IDC, Esxi虚拟机集群(需要交换机开启**混杂模式**), 本地Vmware虚拟机等场景.
+
 ## 网络拓扑变化
 
 ### 1.

@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net"
 
 	"github.com/containernetworking/cni/pkg/invoke"
@@ -11,72 +10,18 @@ import (
 	"github.com/containernetworking/cni/pkg/types"
 	"github.com/containernetworking/cni/pkg/types/current"
 	"github.com/containernetworking/cni/pkg/version"
-	"github.com/containernetworking/plugins/pkg/ns"
-	"github.com/vishvananda/netlink"
 	"k8s.io/klog"
 
 	"github.com/generals-space/crd-ipkeeper/pkg/restapi"
 
 	"github.com/generals-space/cni-terway/pkg/config"
+	"github.com/generals-space/cni-terway/pkg/podroute"
 	"github.com/generals-space/cni-terway/util/skelargs"
 	"github.com/generals-space/cni-terway/util/utilfile"
 )
 
 var ver = "0.3.1"
 var versionAll = version.PluginSupports(ver)
-
-// AddSvcNetRouteInPod 在Pod空间里添加到ServiceIP的路由, 需要设置宿主机为该Pod的网关.
-func AddSvcNetRouteInPod(bridgeName, netnsPath, serviceIPCIDR string) (svcRoute *netlink.Route, err error) {
-	linkBridge, err := netlink.LinkByName(bridgeName)
-	if err != nil {
-		return nil, fmt.Errorf("faliled to get bridge link: %s", err)
-	}
-	bridgeAddrs, err := netlink.AddrList(linkBridge, netlink.FAMILY_V4)
-	if err != nil {
-		return nil, fmt.Errorf("faliled to get bridge link: %s", err)
-	}
-	klog.V(3).Infof("bridge addrs: %+v, len: %d", bridgeAddrs, len(bridgeAddrs))
-
-	var gw net.IP
-	if len(bridgeAddrs) > 0 {
-		gw = bridgeAddrs[0].IP
-	}
-
-	svcRoute = &netlink.Route{
-		Dst: &net.IPNet{
-			IP: net.IPv4(10, 96, 0, 0), Mask: net.CIDRMask(12, 32),
-		},
-		Gw: gw,
-	}
-	if serviceIPCIDR != "" {
-		// ParseCIDR 解析 192.168.0.0/12 网络字符串
-		_, svcNet, err := net.ParseCIDR(serviceIPCIDR)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse service ip cidr %s: %v", serviceIPCIDR, err)
-		}
-		svcRoute.Dst = svcNet
-	}
-
-	netns, err := ns.GetNS(netnsPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open netns %q: %v", netnsPath, err)
-	}
-	defer netns.Close()
-
-	err = netns.Do(func(containerNS ns.NetNS) (err error) {
-		link, err := netlink.LinkByName("eth0")
-		if err != nil {
-			return fmt.Errorf("faliled to get eth0 link: %s", err)
-		}
-		svcRoute.LinkIndex = link.Attrs().Index
-		err = netlink.RouteAdd(svcRoute)
-		if err != nil {
-			return fmt.Errorf("faliled to add route: %s", err)
-		}
-		return nil
-	})
-	return svcRoute, err
-}
 
 // cmdAdd: 在调用此函数时, 以由kubelet创建好pause容器, 正是需要为其部署网络的时候.
 // 而对应的业务容器此时还未创建.
@@ -96,18 +41,17 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	cni0 := netConf.Delegate["bridge"].(string)
 	var resp *restapi.PodResponse
 	var result types.Result
+	podName, err := skelargs.ParseValueFromArgs("K8S_POD_NAME", args.Args)
+	if err != nil {
+		return err
+	}
+	podNS, err := skelargs.ParseValueFromArgs("K8S_POD_NAMESPACE", args.Args)
+	if err != nil {
+		return err
+	}
 
 	// 先判断 cniserver 进程是否存在.
 	if utilfile.Exists(netConf.ServerSocket) {
-		podName, err := skelargs.ParseValueFromArgs("K8S_POD_NAME", args.Args)
-		if err != nil {
-			return err
-		}
-		podNS, err := skelargs.ParseValueFromArgs("K8S_POD_NAMESPACE", args.Args)
-		if err != nil {
-			return err
-		}
-
 		client := restapi.NewCNIServerClient(netConf.ServerSocket)
 		resp, err = client.Add(&restapi.PodRequest{
 			PodName:      podName,
@@ -124,6 +68,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	}
 
 	///////////////////////////////////////////////////////////////
+	// if条件满足说明当前的Pod的确设置了静态IP, 需要为其生成 result 结果.
 	if resp != nil && resp.DoNothing == false {
 		_, podIP, _ := net.ParseCIDR(resp.IPAddress)
 		_, defnet, _ := net.ParseCIDR("0.0.0.0/0")
@@ -163,14 +108,14 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		klog.Infof("run bridge plugin success: %s")
 	}
 
-	// 为Pod获取IP后, 添加Pod到ServiceCIRD的路由.
-	_, err = AddSvcNetRouteInPod(cni0, args.Netns, netConf.ServiceIPCIDR)
+	// 为Pod获取IP后, 检测是否存在默认路由, 并且添加Pod到ServiceCIRD的路由.
+	_, err = podroute.SetRouteInPod(cni0, args.Netns, netConf.ServiceIPCIDR)
 	if err != nil {
 		klog.Errorf("faliled to add route to the pod %s: %s", args.Args, err)
 		return
 	}
-	// 本来想把service route 添加到result中的, 但是result是一个接口, 还要先转成 *current.Result,
-	// 没准还要用上反射, 先不这么干了, 好像也没差?
+	// 本来想把service route 添加到result中的, 但是result是一个接口, 
+	// 还要先转成 *current.Result, 没准还要用上反射, 先不这么干了, 好像也没差?
 
 	// result.Print()会将实际的网络配置打印到标准输出,
 	// kubelet需要读取这里的数据作为Pod的网络配置进行保存,
