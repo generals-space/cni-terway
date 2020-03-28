@@ -52,11 +52,11 @@ tcpdump -nve -i ens192 udp and port 67 and port 68
 
 查看了一下, 虚拟交换机的配置的确是禁用了混杂模式的.
 
-![](https://gitee.com/generals-space/gitimg/raw/master/466D521FF652FDF17189A54843C1B779.png)
+![](https://gitee.com/generals-space/gitimg/raw/master/6ed4837ed9a1d7185d05f78d98690c32.jpg)
 
 最初本来想只启用kuber节点上网卡的混杂模式的(`ip link set ens192 promisc on`), 但是无效, 所以只能冒险开启虚拟交换机的混杂模式了(开玩笑, 混杂模式应该只会影响性能, 方便嗅探测试而已).
 
-![](https://gitee.com/generals-space/gitimg/raw/master/466D521FF652FDF17189A54843C1B779.png)
+![](https://gitee.com/generals-space/gitimg/raw/master/58667751f798dfddf6c0f645c73de96f.jpg)
 
 然后再次进行尝试, 成功了.
 
