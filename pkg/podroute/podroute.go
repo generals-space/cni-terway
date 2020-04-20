@@ -5,35 +5,10 @@ import (
 	"net"
 
 	"github.com/containernetworking/plugins/pkg/ns"
+	"github.com/generals-space/cni-terway/pkg/cninet"
 	"github.com/vishvananda/netlink"
 	"k8s.io/klog"
 )
-
-// getDefRoute 获取默认路由.
-// 判断依据是 route 对象是否拥有 gw 成员, 因为一般的路由只有 dst, 没有gw.
-// 如果没有默认路由, 则返回 nil.
-func getDefRoute() (route *netlink.Route, err error) {
-	routes, err := netlink.RouteList(nil, netlink.FAMILY_V4)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get default route: %s", err)
-	}
-	for _, route := range routes {
-		if route.Gw != nil {
-			return &route, nil
-		}
-	}
-	return nil, fmt.Errorf("default route doesn't exist")
-}
-
-// makeDefRoute 生成用于 Pod 内部的默认路由, 需要指定网关.
-func makeDefRoute(gw net.IP) *netlink.Route {
-	_, defnet, _ := net.ParseCIDR("0.0.0.0/0")
-	return &netlink.Route{
-		Scope: netlink.SCOPE_UNIVERSE,
-		Dst:   defnet,
-		Gw:    gw,
-	}
-}
 
 // makeServiceCIDRRoute 生成 Pod 到 ServiceIP 的路由.
 func makeServiceCIDRRoute(linkBridge netlink.Link, serviceIPCIDR string) (svcRoute *netlink.Route, err error) {
@@ -77,7 +52,7 @@ func SetRouteInPod(bridgeName, netnsPath, serviceIPCIDR string) (svcRoute *netli
 	}
 
 	// 获取宿主机上的默认路由, 之后需要在设置容器中默认路由时使用ta的网关.
-	hostDefRoute, err := getDefRoute()
+	hostDefRoute, err := cninet.GetDefRoute()
 	if err != nil {
 		hostDefRoute = nil
 		klog.Warning(err)
@@ -100,10 +75,10 @@ func SetRouteInPod(bridgeName, netnsPath, serviceIPCIDR string) (svcRoute *netli
 			return fmt.Errorf("faliled to get eth0 link: %s", err)
 		}
 		// 判断容器中是否存在默认路由, 如果不存在则创建(需要使用宿主机的网关).
-		_, err = getDefRoute()
+		_, err = cninet.GetDefRoute()
 		if err != nil {
 			klog.Warning(err)
-			defRoute := makeDefRoute(hostDefRoute.Gw)
+			defRoute := cninet.MakeDefRoute(hostDefRoute.Gw)
 			defRoute.LinkIndex = link.Attrs().Index
 			err = netlink.RouteAdd(defRoute)
 			if err != nil {

@@ -27,8 +27,8 @@ var (
 )
 
 func init() {
-	cmdFlags.StringVar(&cmdOpts.Eth0Name, "iface", "eth0", "the network interface using to communicate with kubernetes cluster")
-	cmdFlags.StringVar(&cmdOpts.BridgeName, "bridge", "cnibr0", "this plugin will create a bridge device, named by this option")
+	cmdFlags.StringVar(&cmdOpts.Eth0Name, "iface", "", "the network interface using to communicate with kubernetes cluster")
+	cmdFlags.StringVar(&cmdOpts.BridgeName, "bridge", "mybr0", "this plugin will create a bridge device, named by this option")
 	cmdFlags.Parse(os.Args[1:])
 }
 
@@ -87,9 +87,13 @@ func stopHandler(cmdOpts *config.CmdOpts, doneCh chan<- bool) {
 }
 
 func main() {
-	klog.Info("start cni-terway plugin......")
-	klog.V(3).Infof("cmd opt: %+v", cmdOpts)
 	var err error
+	klog.Info("start cni-terway plugin......")
+	err = cmdOpts.Complete()
+	if err != nil {
+		return
+	}
+	klog.V(3).Infof("cmd opt: %+v", cmdOpts)
 
 	err = fillNetConf()
 	if err != nil {
@@ -106,8 +110,7 @@ func main() {
 	klog.Info("link bridge success")
 
 	/////////////////////////////////
-	ctx := context.TODO()
-	dhcpProc, err = dhcp.StartDHCP(ctx, dhcpBinPath, dhcpSockPath, dhcpLogPath)
+	dhcpProc, err = dhcp.StartDHCP(context.Background(), dhcpBinPath, dhcpSockPath, dhcpLogPath)
 	if err != nil {
 		klog.Errorf("faliled to run dhcp plugin: %s", err)
 		return
