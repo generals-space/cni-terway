@@ -2,9 +2,7 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
-	"io/ioutil"
 	"os"
 
 	"k8s.io/klog"
@@ -12,12 +10,12 @@ import (
 	"github.com/generals-space/cni-terway/pkg/bridge"
 	"github.com/generals-space/cni-terway/pkg/config"
 	"github.com/generals-space/cni-terway/pkg/dhcp"
-	"github.com/generals-space/cni-terway/pkg/serviceipcidr"
 	"github.com/generals-space/cni-terway/pkg/signals"
 )
 
 var (
 	cmdOpts        config.CmdOpts
+	netConf        config.NetConf
 	cmdFlags       = flag.NewFlagSet("cni-terway", flag.ExitOnError)
 	dhcpBinPath    = "/opt/cni/bin/dhcp"
 	dhcpSockPath   = "/run/cni/dhcp.sock"
@@ -30,43 +28,6 @@ func init() {
 	cmdFlags.StringVar(&cmdOpts.Eth0Name, "iface", "", "the network interface using to communicate with kubernetes cluster")
 	cmdFlags.StringVar(&cmdOpts.BridgeName, "bridge", "mybr0", "this plugin will create a bridge device, named by this option")
 	cmdFlags.Parse(os.Args[1:])
-}
-
-func fillNetConf() (err error) {
-	netConfContent, err := ioutil.ReadFile(cniNetConfPath)
-	if err != nil {
-		klog.Errorf("failed to read cni netconf file: %s", err)
-		return
-	}
-
-	netConf := &config.NetConf{}
-	err = json.Unmarshal(netConfContent, netConf)
-	if err != nil {
-		klog.Errorf("failed to unmarshal cni netconf content: %s", err)
-		return
-	}
-
-	serviceIPCIDR, err := serviceipcidr.GetServiceIPCIDR()
-	if err != nil {
-		klog.Errorf("failed to get service ip cidr: %s", err)
-		return
-	}
-	klog.Infof("get service ip cidr: %s", serviceIPCIDR)
-	netConf.ServiceIPCIDR = serviceIPCIDR
-
-	netConfContent, err = json.Marshal(netConf)
-	if err != nil {
-		klog.Errorf("failed to marshal cni netconf: %s", err)
-		return
-	}
-
-	err = ioutil.WriteFile(cniNetConfPath, netConfContent, 0644)
-	if err != nil {
-		klog.Errorf("failed to write into cni netconf: %s", err)
-		return
-	}
-
-	return
 }
 
 // stopHandler 执行退出时的清理操作, 如停止dhcp进程, 恢复原本的网络拓扑等.
@@ -95,7 +56,7 @@ func main() {
 	}
 	klog.V(3).Infof("cmd opt: %+v", cmdOpts)
 
-	err = fillNetConf()
+	err = netConf.Complete(cniNetConfPath)
 	if err != nil {
 		return
 	}

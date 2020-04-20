@@ -8,6 +8,7 @@ import (
 )
 
 // CmdOpts 命令行参数对象
+// 这个结构体不需要构造函数, 由 main 入口程序通过 flag 标准库自动填充.
 type CmdOpts struct {
 	BridgeName string
 	// 集群之间通信所使用的主网卡.
