@@ -64,5 +64,5 @@ tcpdump -nve -i ens192 udp and port 67 and port 68
 
 虽然之后的业务容器可以通过dhcp获取IP了, 但是进入容器发现无法访问外网, 因为默认路由不见了...
 
-在调用dhcp作ipam的时候是没有管过默认路由的, 因为在本地使用vmware测试时, bridge+dhcp会自动为pause设置上默认路由, 这下需要手动完成了.
+之前在调用`dhcp`作`ipam`的时候是没有管过默认路由的, 因为在本地使用`vmware workstation`测试时, bridge+dhcp会自动为pause设置上默认路由, 这下需要手动完成了. 所以本次修改就增加了这一步骤.
 
