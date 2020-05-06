@@ -114,15 +114,21 @@ func modifyRoutes(routes []netlink.Route, devIndex int)(err error){
 		err = netlink.RouteDel(&route)
 		if err != nil {
 			// 有可能在移除eth0上的IP时, 对应的路由就自动被移除了, 所以这里出错不return
-			klog.Errorf("failed to del route %+v: %s", route, err)
+			if err.Error() != "no such process" {
+				klog.Errorf("failed to del route %+v: %s", route, err)
+				return
+			}
 		}
 		// 我们变更路由主要是将路由条目的`dev`bridgeName接口.
 		// 而在route对象中, LinkIndex才是表示
 		route.LinkIndex = devIndex
 		err = netlink.RouteAdd(&route)
 		if err != nil {
-			klog.Errorf("failed to add route %+v: %s", route, err)
-			return
+			// 如果路由已经存在(可能随 addr 的变动一起迁移, 此时其实不需要手动操作.)
+			if err.Error() != "file exists" {
+				klog.Errorf("failed to add route %+v: %s", route, err)
+				return
+			}
 		}
 	}
 
@@ -158,7 +164,7 @@ func InstallBridgeNetwork(bridgeName, eth0Name string) (err error) {
 	// SetMaster 并不会影响 eth0 上的IP及相关路由, 需要手动进行操作.
 	err = netlink.LinkSetMaster(linkEth0, linkBridge)
 	if err != nil {
-		klog.Errorf("failed to set %s master to %s: %s", eth0Name, err)
+		klog.Errorf("failed to set %s master to %s: %s", eth0Name, bridgeName, err)
 		return err
 	}
 	klog.V(3).Infof("set %s master %s success", eth0Name, bridgeName)

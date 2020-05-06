@@ -22,3 +22,6 @@ $ k cluster-info dump | grep service-cluster-ip-range
 于是看看ta是怎么做的, 最终的实现在`kubernetes/staging/src/k8s.io/kubectl/pkg/cmd/clusterinfo/clusterinfo_dump.go` -> `ClusterInfoDumpOptions.Run()`函数中.
 
 其实就是获取所有的`PodList`对象, 全部打印出来而已. 上面的结果其实就是`kube-apiserver`的`command`字段的输出, 于是我也这么做了, 不算太复杂.
+
+> 还有`--cluster-cidr`选项, 不过没在`apiserver`的yaml中, 而是在`kube-controller-manager`中.
+

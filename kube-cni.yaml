@@ -85,7 +85,7 @@ spec:
         effect: NoSchedule
       initContainers:
       - name: cp-cni-config
-        image: registry.cn-hangzhou.aliyuncs.com/generals-kuber/cni-terway:0.0.17
+        image: registry.cn-hangzhou.aliyuncs.com/generals-kuber/cni-terway:0.0.23
         command:
         - cp
         args:
@@ -99,7 +99,7 @@ spec:
         - name: cni-config-dir
           mountPath: /etc/cni/net.d
       - name: cp-cni-bin
-        image: registry.cn-hangzhou.aliyuncs.com/generals-kuber/cni-terway:0.0.17
+        image: registry.cn-hangzhou.aliyuncs.com/generals-kuber/cni-terway:0.0.23
         command:
         - cp
         args:
@@ -112,7 +112,7 @@ spec:
           mountPath: /opt/cni/bin
       containers:
       - name: kube-cni-terway
-        image: registry.cn-hangzhou.aliyuncs.com/generals-kuber/cni-terway:0.0.17
+        image: registry.cn-hangzhou.aliyuncs.com/generals-kuber/cni-terway:0.0.23
         command:
         - /terway
         ## args:

@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 
 	"github.com/containernetworking/cni/pkg/types"
@@ -23,34 +24,29 @@ type NetConf struct {
 func (netConf *NetConf) Complete(netConfPath string) (err error) {
 	netConfContent, err := ioutil.ReadFile(netConfPath)
 	if err != nil {
-		klog.Errorf("failed to read cni netconf file: %s", err)
-		return
+		return fmt.Errorf("failed to read cni netconf file: %s", err)
 	}
 
 	err = json.Unmarshal(netConfContent, netConf)
 	if err != nil {
-		klog.Errorf("failed to unmarshal cni netconf content: %s", err)
-		return
+		return fmt.Errorf("failed to unmarshal cni netconf content: %s", err)
 	}
 
 	serviceIPCIDR, err := serviceipcidr.GetServiceIPCIDR()
 	if err != nil {
-		klog.Errorf("failed to get service ip cidr: %s", err)
-		return
+		return fmt.Errorf("failed to get service ip cidr: %s", err)
 	}
 	klog.Infof("get service ip cidr: %s", serviceIPCIDR)
 	netConf.ServiceIPCIDR = serviceIPCIDR
 
 	netConfContent, err = json.Marshal(netConf)
 	if err != nil {
-		klog.Errorf("failed to marshal cni netconf: %s", err)
-		return
+		return fmt.Errorf("failed to marshal cni netconf: %s", err)
 	}
 
 	err = ioutil.WriteFile(netConfPath, netConfContent, 0644)
 	if err != nil {
-		klog.Errorf("failed to write into cni netconf: %s", err)
-		return
+		return fmt.Errorf("failed to write into cni netconf: %s", err)
 	}
 
 	return

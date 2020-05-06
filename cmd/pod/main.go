@@ -52,12 +52,14 @@ func main() {
 	klog.Info("start cni-terway plugin......")
 	err = cmdOpts.Complete()
 	if err != nil {
+		klog.Error(err)
 		return
 	}
-	klog.V(3).Infof("cmd opt: %+v", cmdOpts)
+	klog.Infof("cmd opt: %+v", cmdOpts)
 
 	err = netConf.Complete(cniNetConfPath)
 	if err != nil {
+		klog.Error(err)
 		return
 	}
 
