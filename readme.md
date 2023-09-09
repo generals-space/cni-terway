@@ -76,7 +76,7 @@
 编译
 
 ```
-$ go build -o terway main.go
-$ go build -o cni-terway ./cni/main.go
+$ go build -o terway ./cmd/pod/main.go
+$ go build -o cni-terway ./cmd/cni/main.go
 ```
 
