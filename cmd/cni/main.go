@@ -76,14 +76,14 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		result = &current.Result{
 			CNIVersion: ver,
 			IPs: []*current.IPConfig{
-				&current.IPConfig{
+				{
 					Version: "4",
 					Address: *podIP,
 					Gateway: gatewayIP,
 				},
 			},
 			Routes: []*types.Route{
-				&types.Route{
+				{
 					Dst: *defnet,
 					GW:  gatewayIP,
 				},
@@ -105,7 +105,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 			return err
 		}
 
-		klog.Infof("run bridge plugin success: %s")
+		klog.Infof("run bridge plugin success: %s/%s", podNS, podName)
 	}
 
 	// 为Pod获取IP后, 检测是否存在默认路由, 并且添加Pod到ServiceCIRD的路由.
@@ -114,7 +114,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		klog.Errorf("faliled to add route to the pod %s: %s", args.Args, err)
 		return
 	}
-	// 本来想把service route 添加到result中的, 但是result是一个接口, 
+	// 本来想把service route 添加到result中的, 但是result是一个接口,
 	// 还要先转成 *current.Result, 没准还要用上反射, 先不这么干了, 好像也没差?
 
 	// result.Print()会将实际的网络配置打印到标准输出,
